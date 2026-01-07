@@ -28,8 +28,8 @@ const CELL_GAP = 14;
 
 const PANEL_X = 1070;
 const KEEP_Y = 435;
-const TRASH_Y = 540;
-const QUEUE_START_Y = 700;
+const TRASH_Y = 860;
+const QUEUE_START_Y = 680;
 
 const ACTIVE_TILE_X = PANEL_X - 10;
 const ACTIVE_TILE_Y = 100;
@@ -69,6 +69,8 @@ function preload() {
     this.load.image("catImage", "assets/Cat.png");
     this.load.image("sidePanel", "assets/side_panel.png");
     this.load.image("keepSlot", "assets/keepSlot.png");
+    this.load.image("trashSlot", "assets/trashSlot.png");
+    this.load.image("queueHolder", "assets/queueHolder.png");
 
 
     this.load.image("tile2", "assets/tiles/2.png");
@@ -83,12 +85,12 @@ function preload() {
 }
 
 function initQueue() {
-    tileQueue = [4, 6, 12];
+    tileQueue = [4, 6];
 }
 
 function createTile(scene, x, y, value) {
 
-    const sprite = scene.add.image(0, 0, getTileTexture(value)).setScale(0.7);
+    const sprite = scene.add.image(0, 0, getTileTexture(value)).setScale(1);
 
     const label = scene.add.text(0, 0, value, {
         fontSize: "32px",
@@ -128,11 +130,50 @@ function spawnTile(scene, value) {
 function advanceQueue(scene) {
 
     let nextValue = tileQueue.shift();
-    tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 5, 7, 11, 13]));
+    tileQueue.push(Phaser.Math.RND.pick([2,3,4,5,7,11,13]));
 
-    scene.queueTexts.forEach((t, i) => t.setText(tileQueue[i]));
+    // animate slide-left shift
+    scene.tweens.add({
+        targets: scene.queueSlots.map(s => [s.bg, s.label, s.frame]).flat(),
+        x: "-=80",
+        duration: 220,
+        ease: "Quad.easeInOut",
+        onComplete: () => {
+
+            // destroy old first slot
+            const dead = scene.queueSlots.shift();
+            dead.bg.destroy();
+            dead.label.destroy();
+            dead.frame.destroy();
+
+            // create new last slot (fade-in)
+            const LAST_X = scene.queueSlots.at(-1).bg.x + 80;
+            const LAST_Y = QUEUE_START_Y;
+
+            const slot = createQueueSlot(
+                scene,
+                LAST_X,
+                LAST_Y + 20,
+                tileQueue.at(-1),
+                false
+            );
+
+            scene.queueSlots.push(slot);
+            scene.queueTexts = scene.queueSlots.map(s => s.label);
+
+            // update "next tile" highlight
+            scene.queueSlots.forEach((s,i)=>{
+                const isNext = (i === 0);
+                s.frame.setVisible(isNext);
+                s.bg.setScale(isNext ? 0.9 : 0.8);
+                s.label.setFontSize(isNext ? 28 : 22);
+            });
+        }
+    });
+
     spawnTile(scene, nextValue);
 }
+
 
 
 // Grid
@@ -357,6 +398,50 @@ function isInsideBox(obj, box) {
 
 
 
+function createQueueSlot(scene, x, y, value, isNext=false) {
+
+    const bg = scene.add.image(x, y, getTileTexture(value))
+        .setScale(isNext ? 0.9 : 0.8);
+
+    const label = scene.add.text(x, y, value, {
+        fontSize: isNext ? "28px" : "22px",
+        color: "#000",
+        fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    // rounded-style frame (fake using thicker stroke + scale)
+    const frame = scene.add.rectangle(x, y+20, 70, 70)
+        .setStrokeStyle(4, 0x00ffd5)
+        .setVisible(isNext)
+        .setScale(1.15);
+
+    // NOTE: we DO NOT call setRadius — Phaser rectangles don’t support it
+    // If you later install RoundRectangle plugin, we can re-enable it.
+
+    // glow / emphasis on next tile
+    if (isNext) {
+        frame.setAlpha(0.95);
+        bg.setTint(0xffffff);
+    }
+
+    // fade-in + slide animation
+    bg.setAlpha(0);
+    label.setAlpha(0);
+    frame.setAlpha(isNext ? 0 : 0); // explicit, avoids undefined
+
+    scene.tweens.add({
+        targets: [bg, label, frame],
+        alpha: 1,
+        y: y - 6,
+        duration: 220,
+        ease: "Quad.easeOut"
+    });
+
+    return { bg, label, frame };
+}
+
+
+
 
 // ui
 
@@ -462,30 +547,65 @@ function create() {
         .setOrigin(.5)
         .setScale(0.14)
         .setInteractive();
-    this.keepBox.area = { x: PANEL_X - 15, y: KEEP_Y, w: 130, h: 130 };
 
+    this.keepBox.area = { x: PANEL_X - 15, y: KEEP_Y, w: 100, h: 100 };
 
+    //queue holder
+    this.add.image(PANEL_X-15, 700, "queueHolder")
+        .setOrigin(.5)
+        .setScale(.18);
 
     // Trash
-    this.add.text(PANEL_X, 700, "TRASH",
-        { fontSize: "22px", color: "#660000", fontStyle: "bold" }).setOrigin(0.5);
+    this.add.text(PANEL_X - 15, TRASH_Y - 105, "TRASH",
+        {
+            fontSize: "24px",
+            color: "#d20909ff",
+            fontStyle: "900",
+            fontFamily: "Arial",
+        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
 
-    this.trashBox = this.add.rectangle(PANEL_X, TRASH_Y + 200, 130, 130, 0xff8a80)
-        .setStrokeStyle(6, 0x000000).setInteractive();
+    this.trashBox = this.add.image(PANEL_X - 15, TRASH_Y, "trashSlot")
+        .setOrigin(.5)
+        .setScale(0.14)
+        .setInteractive();
+
     this.trashBox.area = { x: PANEL_X, y: TRASH_Y, w: 130, h: 130 };
 
-    this.trashText = this.add.text(PANEL_X, 610, "x" + trashUses,
-        { fontSize: "22px", color: "#000", fontStyle: "bold" }).setOrigin(0.5);
+    this.trashText = this.add.text(PANEL_X - 15, TRASH_Y - 80, "x" + trashUses,
+        {
+            fontSize: "24px",
+            color: "#d20909ff",
+            fontStyle: "900",
+            fontFamily: "Arial",
+        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
 
     // queue display
     initQueue();
 
+    this.queueSlots = [];
     this.queueTexts = [];
-    for (let i = 0; i < tileQueue.length; i++)
-        this.queueTexts.push(
-            this.add.text(PANEL_X, QUEUE_START_Y + i * 60, tileQueue[i],
-                { fontSize: "24px", color: "#000" }).setOrigin(0.5)
+
+    const START_X = PANEL_X - 50;
+    const START_Y = QUEUE_START_Y + 20;
+    const SPACING = 80;
+
+    for (let i = 0; i < tileQueue.length; i++) {
+
+        const isNext = (i === 0); // first = next tile
+
+        const slot = createQueueSlot(
+            this,
+            START_X + i * SPACING,
+            START_Y,
+            tileQueue[i],
+            isNext
         );
+
+        this.queueSlots.push(slot);
+        this.queueTexts.push(slot.label);
+    }
+
+
 
     spawnTile(this, tileQueue[0]);
 
@@ -525,7 +645,7 @@ function dragEndHandler(pointer, tile) {
 
         if (!keptTile) {
             keptTile = activeTile;
-            keptTile.x = PANEL_X;
+            keptTile.x = PANEL_X - 15;
             keptTile.y = KEEP_Y;
             keptTile.disableInteractive();
 
