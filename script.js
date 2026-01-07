@@ -74,6 +74,39 @@ function advanceQueue(scene) {
     spawnTile(scene, nextValue);
 }
 
+function getNeighbors(cell) {
+    return gridCells.filter(c =>
+        (c.row === cell.row && Math.abs(c.col - cell.col) === 1) ||
+        (c.col === cell.col && Math.abs(c.row - cell.row) === 1)
+    );
+}
+
+
+function checkEqualMerge(cell) {
+
+    let neighbors = getNeighbors(cell);
+
+    neighbors.forEach(n => {
+        if (n.occupied && n.value === cell.value) {
+
+            // Destroy both tiles
+            cell.tile.destroy();
+            cell.tile.text.destroy();
+
+            n.tile.destroy();
+            n.tile.text.destroy();
+
+            // Clear both cells
+            cell.occupied = false;
+            cell.value = null;
+            cell.tile = null;
+
+            n.occupied = false;
+            n.value = null;
+            n.tile = null;
+        }
+    });
+}
 
 
 function create() {
@@ -88,7 +121,16 @@ function create() {
             this.add.rectangle(x, y, size, size, 0x3ddad7)
                 .setStrokeStyle(4, 0xffffff);
 
-            gridCells.push({ x, y, occupied: false, value: null });
+            gridCells.push({
+                x: x,
+                y: y,
+                row: r,
+                col: c,
+                occupied: false,
+                value: null,
+                tile: null
+            });
+
 
         }
     }
@@ -150,6 +192,8 @@ function create() {
             if (previousCell) {
                 previousCell.occupied = false;
                 previousCell.value = null;
+                previousCell.tile = null;
+
             }
 
             gameObject.x = targetCell.x;
@@ -159,28 +203,17 @@ function create() {
 
             targetCell.occupied = true;
             targetCell.value = gameObject.value;
+            targetCell.tile = gameObject;
+
             gameObject.currentCell = targetCell;
 
-            // setTimeout(() => {
-
-            //     gameObject.destroy();
-            //     gameObject.text.destroy();
-
-            //     let nextValue = tileQueue.shift();
-            //     tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 6, 12]));
-
-            //     spawnTile(this.scene, nextValue);
-
-            //     // Update queue UI
-            //     this.scene.queueTexts.forEach((t, i) => {
-            //         t.setText(tileQueue[i]);
-            //     });
-
-            // }, 200);
 
             gameObject.disableInteractive();
             activeTile = null;
             advanceQueue(this.scene);
+
+            checkEqualMerge(targetCell);
+
 
         }
 
