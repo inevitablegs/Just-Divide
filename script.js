@@ -5,6 +5,13 @@ let activeTile = null;
 let tileQueue = [];
 
 
+let score = 0;
+let level = 1;
+
+let bestScore = localStorage.getItem("bestScore");
+bestScore = bestScore ? parseInt(bestScore) : 0;
+
+
 const config = {
     type: Phaser.AUTO,
     width: 1440,
@@ -104,9 +111,100 @@ function checkEqualMerge(cell) {
             n.occupied = false;
             n.value = null;
             n.tile = null;
+            updateScore();
         }
     });
+
 }
+
+
+function checkDivisibleMerge(cell) {
+
+    let neighbors = getNeighbors(cell);
+
+    neighbors.forEach(n => {
+
+        if (!n.occupied) return;
+
+        let a = cell.value;
+        let b = n.value;
+
+        let larger = Math.max(a, b);
+        let smaller = Math.min(a, b);
+
+        if (larger % smaller === 0) {
+
+            let result = larger / smaller;
+
+            // Remove both tiles
+            cell.tile.destroy();
+            cell.tile.text.destroy();
+            n.tile.destroy();
+            n.tile.text.destroy();
+
+            // Clear both cells
+            cell.occupied = false;
+            cell.value = null;
+            cell.tile = null;
+
+            n.occupied = false;
+            n.value = null;
+            n.tile = null;
+
+            // If result is 1 → no new tile
+            if (result === 1) return;
+
+            // Spawn result tile at cell position
+            spawnMergedTile(cell.x, cell.y, result, cell);
+            updateScore();
+
+        }
+    });
+
+}
+
+
+
+function spawnMergedTile(x, y, value, cell) {
+
+    let tile = game.scene.scenes[0].add.image(x, y, "tile")
+        .setScale(0.7);
+
+    let text = game.scene.scenes[0].add.text(x, y, value, {
+        fontSize: "32px",
+        color: "#ffffff",
+        fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    cell.occupied = true;
+    cell.value = value;
+    cell.tile = tile;
+
+    tile.text = text;
+}
+
+
+function updateScore() {
+
+    score += 1;
+
+    // Level calculation: every 10 points
+    level = Math.floor(score / 10) + 1;
+
+    // Update best score
+    if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem("bestScore", bestScore);
+    }
+
+    // Update UI
+    let scene = game.scene.scenes[0];
+    scene.scoreText.setText("Score: " + score);
+    scene.levelText.setText("LEVEL " + level);
+    scene.bestText.setText("Best: " + bestScore);
+}
+
+
 
 
 function create() {
@@ -214,6 +312,8 @@ function create() {
 
             checkEqualMerge(targetCell);
 
+            checkEqualMerge(targetCell);
+            checkDivisibleMerge(targetCell);
 
         }
 
@@ -226,6 +326,25 @@ function create() {
 
             gameObject.currentCell = previousCell;
         }
+    });
+
+
+    // LEFT PANEL - LEVEL
+    this.levelText = this.add.text(200, 150, "LEVEL 1", {
+        fontSize: "28px",
+        color: "#ffffff",
+        fontStyle: "bold"
+    });
+
+    // RIGHT PANEL - SCORE & BEST
+    this.scoreText = this.add.text(1000, 150, "Score: 0", {
+        fontSize: "24px",
+        color: "#ffffff"
+    });
+
+    this.bestText = this.add.text(1000, 190, "Best: " + bestScore, {
+        fontSize: "20px",
+        color: "#ffffff"
     });
 
 
