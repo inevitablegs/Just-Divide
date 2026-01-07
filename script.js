@@ -2,6 +2,7 @@ let gridCells = [];
 let gridState = [];
 
 let activeTile = null;
+let tileQueue = [];
 
 
 const config = {
@@ -22,6 +23,11 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+
+
+function initQueue() {
+    tileQueue = [4, 6, 12];
+}
 
 
 
@@ -51,6 +57,24 @@ function spawnTile(scene, value) {
     activeTile = tile;
 }
 
+function advanceQueue(scene) {
+
+    // Take next tile value
+    let nextValue = tileQueue.shift();
+
+    // Push new random tile to queue
+    tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 6, 12]));
+
+    // Update queue UI
+    scene.queueTexts.forEach((txt, i) => {
+        txt.setText(tileQueue[i]);
+    });
+
+    // Spawn new active tile
+    spawnTile(scene, nextValue);
+}
+
+
 
 function create() {
     const size = 100;
@@ -68,7 +92,24 @@ function create() {
 
         }
     }
+
+    initQueue();
     spawnTile(this, 12);
+
+    this.queueTexts = [];
+
+    for (let i = 0; i < tileQueue.length; i++) {
+        let t = this.add.text(
+            1100,
+            500 + i * 60,
+            tileQueue[i],
+            { fontSize: "24px", color: "#000" }
+        ).setOrigin(0.5);
+
+        this.queueTexts.push(t);
+    }
+
+
 
     this.input.on("drag", function (pointer, gameObject, dragX, dragY) {
 
@@ -119,6 +160,28 @@ function create() {
             targetCell.occupied = true;
             targetCell.value = gameObject.value;
             gameObject.currentCell = targetCell;
+
+            // setTimeout(() => {
+
+            //     gameObject.destroy();
+            //     gameObject.text.destroy();
+
+            //     let nextValue = tileQueue.shift();
+            //     tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 6, 12]));
+
+            //     spawnTile(this.scene, nextValue);
+
+            //     // Update queue UI
+            //     this.scene.queueTexts.forEach((t, i) => {
+            //         t.setText(tileQueue[i]);
+            //     });
+
+            // }, 200);
+
+            gameObject.disableInteractive();
+            activeTile = null;
+            advanceQueue(this.scene);
+
         }
 
         if (!snapped) {
