@@ -13,6 +13,7 @@ let hintsEnabled = false;
 
 let keptTileValue = null;
 let keepTileText = null;
+let keptTile = null;
 
 
 let trashUses = 5;
@@ -43,6 +44,22 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+
+const TILE_TEXTURES = {
+    2: "tile2",
+    3: "tile3",
+    4: "tile4",
+    5: "tile5",
+    6: "tile6",
+    7: "tile7",
+    11: "tile11",
+    12: "tile12",
+    13: "tile13"
+};
+
+function getTileTexture(value) {
+    return TILE_TEXTURES[value] || "tile"; // fallback
+}
 // Start
 
 function preload() {
@@ -52,32 +69,56 @@ function preload() {
     this.load.image("catImage", "assets/Cat.png");
     this.load.image("sidePanel", "assets/side_panel.png");
     this.load.image("keepSlot", "assets/keepSlot.png");
+
+
+    this.load.image("tile2", "assets/tiles/2.png");
+    this.load.image("tile3", "assets/tiles/3.png");
+    this.load.image("tile4", "assets/tiles/4.png");
+    this.load.image("tile5", "assets/tiles/5.png");
+    this.load.image("tile6", "assets/tiles/6.png");
+    this.load.image("tile7", "assets/tiles/7.png");
+    this.load.image("tile11", "assets/tiles/11.png");
+    this.load.image("tile12", "assets/tiles/12.png");
+    this.load.image("tile13", "assets/tiles/13.png");
 }
 
 function initQueue() {
     tileQueue = [4, 6, 12];
 }
 
-// Tile
+function createTile(scene, x, y, value) {
 
-function spawnTile(scene, value) {
+    const sprite = scene.add.image(0, 0, getTileTexture(value)).setScale(0.7);
 
-    let tile = scene.add.image(ACTIVE_TILE_X, ACTIVE_TILE_Y, "tile")
-        .setScale(0.7)
-        .setInteractive();
-
-    let text = scene.add.text(ACTIVE_TILE_X, ACTIVE_TILE_Y, value, {
+    const label = scene.add.text(0, 0, value, {
         fontSize: "32px",
         color: "#ffffff",
         fontStyle: "bold"
     }).setOrigin(0.5);
 
+    const tile = scene.add.container(x, y, [sprite, label]);
+
     tile.value = value;
-    tile.text = text;
+    tile.sprite = sprite;
+    tile.label = label;
     tile.currentCell = null;
 
+    // IMPORTANT: give the container a hit area
+    tile.setSize(sprite.width * 0.7, sprite.height * 0.7);
+    tile.setInteractive();
+
     scene.input.setDraggable(tile);
-    activeTile = tile;
+
+    return tile;
+}
+
+
+// Tile
+
+function spawnTile(scene, value) {
+
+    activeTile = createTile(scene, ACTIVE_TILE_X, ACTIVE_TILE_Y, value);
+    activeTile.setInteractive();
 
     updateHints();
 }
@@ -90,7 +131,6 @@ function advanceQueue(scene) {
     tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 5, 7, 11, 13]));
 
     scene.queueTexts.forEach((t, i) => t.setText(tileQueue[i]));
-
     spawnTile(scene, nextValue);
 }
 
@@ -113,8 +153,8 @@ function checkEqualMerge(cell) {
     neighbors.forEach(n => {
         if (n.occupied && n.value === cell.value) {
 
-            cell.tile.destroy(); cell.tile.text.destroy();
-            n.tile.destroy(); n.tile.text.destroy();
+            cell.tile.destroy();
+            n.tile.destroy();
 
             cell.occupied = false; cell.value = null; cell.tile = null;
             n.occupied = false; n.value = null; n.tile = null;
@@ -140,13 +180,14 @@ function checkDivisibleMerge(cell) {
 
             let result = larger / smaller;
 
-            cell.tile.destroy(); cell.tile.text.destroy();
-            n.tile.destroy(); n.tile.text.destroy();
+            cell.tile.destroy();
+            n.tile.destroy();
 
             cell.occupied = false; cell.value = null; cell.tile = null;
             n.occupied = false; n.value = null; n.tile = null;
 
-            if (result !== 1) spawnMergedTile(cell.x, cell.y, result, cell);
+            if (result !== 1)
+                spawnMergedTile(cell.x, cell.y, result, cell);
 
             updateScore();
         }
@@ -155,15 +196,12 @@ function checkDivisibleMerge(cell) {
 
 function spawnMergedTile(x, y, value, cell) {
 
-    let tile = game.scene.scenes[0].add.image(x, y, "tile").setScale(0.7);
-    let text = game.scene.scenes[0].add.text(x, y, value, {
-        fontSize: "32px", color: "#ffffff", fontStyle: "bold"
-    }).setOrigin(0.5);
+    let tile = createTile(game.scene.scenes[0], x, y, value);
 
     cell.occupied = true;
     cell.value = value;
     cell.tile = tile;
-    tile.text = text;
+    tile.currentCell = cell;
 }
 
 
@@ -209,7 +247,7 @@ function restoreGameState(state) {
     let scene = game.scene.scenes[0];
 
     gridCells.forEach(c => {
-        if (c.tile) { c.tile.destroy(); c.tile.text.destroy(); }
+        if (c.tile) { c.tile.destroy(); }
         c.occupied = false; c.value = null; c.tile = null;
     });
 
@@ -219,7 +257,9 @@ function restoreGameState(state) {
 
         let cell = gridCells.find(c => c.row === s.row && c.col === s.col);
 
-        let tile = scene.add.image(cell.x, cell.y, "tile").setScale(0.7);
+        let tile = createTile(scene, cell.x, cell.y, s.value);
+        cell.tile = tile;
+        tile.currentCell = cell;
         let text = scene.add.text(cell.x, cell.y, s.value, {
             fontSize: "32px", color: "#ffffff", fontStyle: "bold"
         }).setOrigin(0.5);
@@ -239,7 +279,7 @@ function restoreGameState(state) {
     scene.scoreText.setText("SCORE " + score);
     scene.levelText.setText("LEVEL " + level);
 
-    if (activeTile) { activeTile.destroy(); activeTile.text.destroy(); activeTile = null; }
+    if (c.tile) { c.tile.destroy(); }
     if (state.activeTileValue !== null) spawnTile(scene, state.activeTileValue);
 
     updateHints();
@@ -280,7 +320,6 @@ function updateHints() {
     let mergeExists = anyMergePossibleForTile(activeTile.value);
 
     gridCells.forEach(cell => {
-
         if (cell.occupied) return;
 
         if (mergeExists && canMergeHere(cell, activeTile.value))
@@ -315,6 +354,10 @@ function isInsideBox(obj, box) {
 }
 
 
+
+
+
+
 // ui
 
 function create() {
@@ -324,8 +367,7 @@ function create() {
     const { width, height } = this.scale;
 
     let bg = this.add.image(width / 2, height / 2, "bg");
-    bg.setDisplaySize(width, height);   // stretch to screen
-    bg.setDepth(-10);
+    bg.setDisplaySize(width, height).setDepth(-10);
 
     this.add.text(720, 60, "JUST DIVIDE",
         { fontSize: "48px", color: "#000", fontStyle: "bold" }).setOrigin(0.5);
@@ -338,7 +380,7 @@ function create() {
         { fontSize: "22px", color: "#b82929", fontStyle: "bold" }
     ).setOrigin(0.5);
 
-    
+
 
     this.levelCard = this.add.image(300, 390, "levelCard")
         .setOrigin(0.5)
@@ -370,19 +412,19 @@ function create() {
         }).setOrigin(0.6);
 
     // grid bg
-    this.add.rectangle(GRID_CENTER_X - 220, GRID_CENTER_Y + 30 , 540, 640, 0x0c6c7a)
+    this.add.rectangle(GRID_CENTER_X - 220, GRID_CENTER_Y + 30, 540, 640, 0x0c6c7a)
         .setStrokeStyle(10, 0x64d3e3)
         .setOrigin(0.5)
         .setDepth(-1);
 
-    this.catImage = this.add.image(GRID_CENTER_X - 220, GRID_CENTER_Y-350, "catImage")
+    this.catImage = this.add.image(GRID_CENTER_X - 220, GRID_CENTER_Y - 350, "catImage")
         .setOrigin(0.5)
         .setScale(1);
 
     // cells
     gridCells = [];
 
-    const gridStartX = (GRID_CENTER_X - 220)  - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
+    const gridStartX = (GRID_CENTER_X - 220) - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
     const gridStartY = (GRID_CENTER_Y + 80) - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
 
     for (let r = 0; r < GRID_SIZE; r++)
@@ -390,10 +432,10 @@ function create() {
 
             const x = gridStartX + c * (CELL_SIZE + CELL_GAP);
             const y = gridStartY + r * (CELL_SIZE + CELL_GAP);
-            
+
             let rect = this.add.image(x, y, "tile")
-            .setOrigin(.5)
-            .setScale(.8);
+                .setOrigin(.5)
+                .setScale(.8);
 
             gridCells.push({
                 x, y, row: r, col: c,
@@ -404,16 +446,16 @@ function create() {
 
     // side panel
     this.add.image(PANEL_X, 650, "sidePanel")
-    .setOrigin(.5)
-    .setScale(1.35);
+        .setOrigin(.5)
+        .setScale(1.35);
 
     // keep
-    this.add.text(PANEL_X - 15, KEEP_Y + 80, "KEEP",{
-        fontSize: "24px", 
-        color: "#006D68", 
+    this.add.text(PANEL_X - 15, KEEP_Y + 80, "KEEP", {
+        fontSize: "24px",
+        color: "#006D68",
         fontStyle: "900",
         fontFamily: "Arial",
-        
+
     }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
 
     this.keepBox = this.add.image(PANEL_X - 15, KEEP_Y, "keepSlot")
@@ -449,9 +491,9 @@ function create() {
 
 
     // Drag
-    this.input.on("drag", (_, obj, x, y) => {
-        obj.x = x; obj.y = y;
-        obj.text.x = x; obj.text.y = y;
+    this.input.on("drag", (_, tile, x, y) => {
+        tile.x = x;
+        tile.y = y;
     });
 
     this.input.on("dragend", dragEndHandler, this);
@@ -472,40 +514,50 @@ function create() {
 
 
 
-function dragEndHandler(pointer, gameObject) {
+function dragEndHandler(pointer, tile) {
 
     let scene = this;
-    let previousCell = gameObject.currentCell;
+    let previousCell = tile.currentCell;
     let snapped = false, targetCell = null;
 
     // Keep
-    if (isInsideBox(gameObject, scene.keepBox.area)) {
+    if (isInsideBox(tile, scene.keepBox.area)) {
 
-        if (keptTileValue === null) {
-            keptTileValue = activeTile.value;
-            activeTile.destroy(); activeTile.text.destroy(); activeTile = null;
+        if (!keptTile) {
+            keptTile = activeTile;
+            keptTile.x = PANEL_X;
+            keptTile.y = KEEP_Y;
+            keptTile.disableInteractive();
+
+            activeTile = null;
             advanceQueue(scene);
-        } else {
-            let temp = activeTile.value;
-            activeTile.destroy(); activeTile.text.destroy();
-            spawnTile(scene, keptTileValue);
-            keptTileValue = temp;
+        }
+        else {
+            const temp = keptTile;
+
+            keptTile = activeTile;
+            keptTile.x = PANEL_X;
+            keptTile.y = KEEP_Y;
+            keptTile.disableInteractive();
+
+            spawnTile(scene, temp.value);
+            temp.destroy();
         }
 
-        updateKeepDisplay(scene);
         updateHints();
         return;
     }
 
+
     // Trash
-    if (isInsideBox(gameObject, scene.trashBox.area)) {
+    if (isInsideBox(tile, scene.trashBox.area)) {
 
         if (trashUses <= 0) return;
 
-        trashUses -= 1;
+        trashUses--;
         scene.trashText.setText("x" + trashUses);
 
-        activeTile.destroy(); activeTile.text.destroy();
+        activeTile.destroy();
         activeTile = null;
 
         advanceQueue(scene);
@@ -515,7 +567,7 @@ function dragEndHandler(pointer, gameObject) {
 
     // Snaping
     gridCells.forEach(cell => {
-        if (Phaser.Math.Distance.Between(gameObject.x, gameObject.y, cell.x, cell.y) < 50 &&
+        if (Phaser.Math.Distance.Between(tile.x, tile.y, cell.x, cell.y) < 50 &&
             !cell.occupied && !snapped) {
 
             targetCell = cell;
@@ -533,17 +585,15 @@ function dragEndHandler(pointer, gameObject) {
             previousCell.tile = null;
         }
 
-        gameObject.x = targetCell.x;
-        gameObject.y = targetCell.y;
-        gameObject.text.x = targetCell.x;
-        gameObject.text.y = targetCell.y;
+        tile.x = targetCell.x;
+        tile.y = targetCell.y;
 
         targetCell.occupied = true;
-        targetCell.value = gameObject.value;
-        targetCell.tile = gameObject;
+        targetCell.value = tile.value;
+        targetCell.tile = tile;
 
-        gameObject.currentCell = targetCell;
-        gameObject.disableInteractive();
+        tile.currentCell = targetCell;
+        tile.disableInteractive();
         activeTile = null;
 
         advanceQueue(scene);
@@ -556,10 +606,7 @@ function dragEndHandler(pointer, gameObject) {
     }
 
     // reset
-    gameObject.x = ACTIVE_TILE_X;
-    gameObject.y = ACTIVE_TILE_Y;
-    gameObject.text.x = ACTIVE_TILE_X;
-    gameObject.text.y = ACTIVE_TILE_Y;
-
-    gameObject.currentCell = previousCell;
+    tile.x = ACTIVE_TILE_X;
+    tile.y = ACTIVE_TILE_Y;
+    tile.currentCell = previousCell;
 }
