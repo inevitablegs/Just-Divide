@@ -1,18 +1,33 @@
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    backgroundColor: "#000000",
+    width: 1440,
+    height: 1024,
+    backgroundColor: "#f6c1cc",
     scene: {
         create
+    },
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
     }
+
 };
 
 const game = new Phaser.Game(config);
 
 function create() {
-    this.add.text(300, 280, "Hello Phaser", {
-        fontSize: "32px",
-        color: "#ffffff"
-    });
+    const size = 100;
+    const gap = 10;
+
+    for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+            this.add.rectangle(
+                520 + c * (size + gap),
+                300 + r * (size + gap),
+                size,
+                size,
+                0x3ddad7
+            ).setStrokeStyle(4, 0xffffff);
+        }
+    }
 }
