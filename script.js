@@ -1,4 +1,5 @@
 let gridCells = [];
+let gridState = [];
 
 
 const config = {
@@ -38,7 +39,7 @@ function create() {
             this.add.rectangle(x, y, size, size, 0x3ddad7)
                 .setStrokeStyle(4, 0xffffff);
 
-            gridCells.push({ x, y });
+            gridCells.push({ x, y, occupied: false, value: null });
 
         }
     }
@@ -62,7 +63,11 @@ function create() {
     });
 
     this.input.on("dragend", function (pointer, gameObject) {
+
+        let snapped = false;
+
         gridCells.forEach(cell => {
+
             let dist = Phaser.Math.Distance.Between(
                 gameObject.x,
                 gameObject.y,
@@ -70,11 +75,23 @@ function create() {
                 cell.y
             );
 
-            if (dist < 50) {
-                console.log("Dropped near grid cell");
+            if (dist < 50 && !cell.occupied && !snapped) {
+                gameObject.x = cell.x;
+                gameObject.y = cell.y;
+
+                tileText.x = cell.x;
+                tileText.y = cell.y;
+
+                cell.occupied = true;
+                cell.value = 12; // temporary
+
+                snapped = true;
             }
         });
+
+    
     });
+
 
 
 
