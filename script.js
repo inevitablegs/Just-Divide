@@ -8,6 +8,12 @@ let tileQueue = [];
 let score = 0;
 let level = 1;
 
+let undoStack = [];
+const MAX_UNDO = 10;
+
+let hintsEnabled = false;
+
+
 let bestScore = localStorage.getItem("bestScore");
 bestScore = bestScore ? parseInt(bestScore) : 0;
 
@@ -44,6 +50,7 @@ function preload() {
 
 
 function spawnTile(scene, value) {
+    updateHints();
 
     let tile = scene.add.image(1100, 400, "tile")
         .setScale(0.7)
@@ -65,12 +72,13 @@ function spawnTile(scene, value) {
 }
 
 function advanceQueue(scene) {
+    updateHints();
 
     // Take next tile value
     let nextValue = tileQueue.shift();
 
     // Push new random tile to queue
-    tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 6, 12]));
+    tileQueue.push(Phaser.Math.RND.pick([2, 3, 4, 5, 7, 11, 13]));
 
     // Update queue UI
     scene.queueTexts.forEach((txt, i) => {
@@ -206,6 +214,202 @@ function updateScore() {
 
 
 
+function saveGameState() {
+
+    let gridSnapshot = gridCells.map(cell => ({
+        row: cell.row,
+        col: cell.col,
+        occupied: cell.occupied,
+        value: cell.value
+    }));
+
+    let state = {
+        grid: gridSnapshot,
+        queue: [...tileQueue],
+        score: score,
+        level: level,
+        activeTileValue: activeTile ? activeTile.value : null
+    };
+
+    undoStack.push(state);
+
+    if (undoStack.length > MAX_UNDO) {
+        undoStack.shift();
+    }
+}
+
+
+function restoreGameState(state) {
+    updateHints();
+
+    let scene = game.scene.scenes[0];
+
+    // Clear existing grid tiles
+    gridCells.forEach(cell => {
+        if (cell.tile) {
+            cell.tile.destroy();
+            cell.tile.text.destroy();
+        }
+        cell.occupied = false;
+        cell.value = null;
+        cell.tile = null;
+    });
+
+    // Restore grid
+    state.grid.forEach(savedCell => {
+        if (savedCell.occupied) {
+
+            let cell = gridCells.find(c =>
+                c.row === savedCell.row && c.col === savedCell.col
+            );
+
+            let tile = scene.add.image(cell.x, cell.y, "tile")
+                .setScale(0.7);
+
+            let text = scene.add.text(cell.x, cell.y, savedCell.value, {
+                fontSize: "32px",
+                color: "#ffffff",
+                fontStyle: "bold"
+            }).setOrigin(0.5);
+
+            cell.occupied = true;
+            cell.value = savedCell.value;
+            cell.tile = tile;
+            tile.text = text;
+        }
+    });
+
+    // Restore queue
+    tileQueue = [...state.queue];
+    scene.queueTexts.forEach((t, i) => {
+        t.setText(tileQueue[i]);
+    });
+
+    // Restore score & level
+    score = state.score;
+    level = state.level;
+
+    scene.scoreText.setText("Score: " + score);
+    scene.levelText.setText("LEVEL " + level);
+
+    // Restore active tile
+    if (activeTile) {
+        activeTile.destroy();
+        activeTile.text.destroy();
+        activeTile = null;
+    }
+
+    if (state.activeTileValue !== null) {
+        spawnTile(scene, state.activeTileValue);
+    }
+}
+
+function canMergeHere(cell, value) {
+
+    if (cell.occupied) return false;
+
+    let neighbors = getNeighbors(cell);
+
+    for (let n of neighbors) {
+        if (!n.occupied) continue;
+
+        // Equal merge
+        if (n.value === value) return true;
+
+        // Divisible merge
+        let larger = Math.max(n.value, value);
+        let smaller = Math.min(n.value, value);
+
+        if (larger % smaller === 0) return true;
+    }
+
+    return false;
+}
+
+
+function updateHints() {
+
+    let scene = game.scene.scenes[0];
+
+    gridCells.forEach(cell => {
+
+        // Default color
+        cell.rect.setFillStyle(0x3ddad7);
+
+        if (!hintsEnabled || !activeTile) return;
+
+        if (canMergeHere(cell, activeTile.value)) {
+            cell.rect.setFillStyle(0xfff176); // yellow hint
+        }
+    });
+}
+
+
+function isGridFull() {
+    return gridCells.every(c => c.occupied);
+}
+
+
+function anyMergePossible() {
+
+    for (let cell of gridCells) {
+        if (!cell.occupied) continue;
+
+        let neighbors = getNeighbors(cell);
+
+        for (let n of neighbors) {
+            if (!n.occupied) continue;
+
+            // Equal
+            if (cell.value === n.value) return true;
+
+            // Divisible
+            let larger = Math.max(cell.value, n.value);
+            let smaller = Math.min(cell.value, n.value);
+
+            if (larger % smaller === 0) return true;
+        }
+    }
+
+    return false;
+}
+
+
+function checkGameOver() {
+
+    if (!isGridFull()) return false;
+
+    if (anyMergePossible()) return false;
+
+    return true;
+}
+
+
+function showGameOver() {
+
+    let scene = game.scene.scenes[0];
+
+    scene.add.rectangle(720, 512, 1440, 1024, 0x000000, 0.6);
+
+    scene.add.text(720, 450, "GAME OVER", {
+        fontSize: "64px",
+        color: "#ffffff",
+        fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    scene.add.text(720, 530,
+        `Score: ${score}\nBest: ${bestScore}`,
+        {
+            fontSize: "28px",
+            color: "#ffffff",
+            align: "center"
+        }
+    ).setOrigin(0.5);
+
+    scene.input.enabled = false;
+}
+
+
 
 function create() {
     const size = 100;
@@ -216,18 +420,17 @@ function create() {
             let x = 520 + c * (size + gap);
             let y = 300 + r * (size + gap);
 
-            this.add.rectangle(x, y, size, size, 0x3ddad7)
+            let rect = this.add.rectangle(x, y, size, size, 0x3ddad7)
                 .setStrokeStyle(4, 0xffffff);
 
             gridCells.push({
-                x: x,
-                y: y,
-                row: r,
-                col: c,
+                x, y, row: r, col: c,
                 occupied: false,
                 value: null,
-                tile: null
+                tile: null,
+                rect: rect
             });
+
 
 
         }
@@ -280,10 +483,12 @@ function create() {
             );
 
             if (dist < 50 && !cell.occupied && !snapped) {
+
                 targetCell = cell;
                 snapped = true;
             }
         });
+        saveGameState();
 
         if (snapped && targetCell) {
 
@@ -314,6 +519,11 @@ function create() {
 
             checkEqualMerge(targetCell);
             checkDivisibleMerge(targetCell);
+
+            if (checkGameOver()) {
+                showGameOver();
+            }
+
 
         }
 
@@ -348,6 +558,19 @@ function create() {
     });
 
 
+
+    this.input.keyboard.on("keydown-Z", () => {
+
+        if (undoStack.length === 0) return;
+
+        let prevState = undoStack.pop();
+        restoreGameState(prevState);
+    });
+
+    this.input.keyboard.on("keydown-G", () => {
+        hintsEnabled = !hintsEnabled;
+        updateHints();
+    });
 
 }
 
