@@ -1,6 +1,8 @@
 let gridCells = [];
 let gridState = [];
 
+let activeTile = null;
+
 
 const config = {
     type: Phaser.AUTO,
@@ -27,6 +29,29 @@ function preload() {
     this.load.image("tile", "assets/tile.png");
 }
 
+
+function spawnTile(scene, value) {
+
+    let tile = scene.add.image(1100, 400, "tile")
+        .setScale(0.7)
+        .setInteractive();
+
+    let text = scene.add.text(1100, 400, value, {
+        fontSize: "32px",
+        color: "#ffffff",
+        fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    tile.value = value;
+    tile.text = text;
+    tile.currentCell = null;
+
+    scene.input.setDraggable(tile);
+
+    activeTile = tile;
+}
+
+
 function create() {
     const size = 100;
     const gap = 10;
@@ -43,28 +68,26 @@ function create() {
 
         }
     }
-    let tile = this.add.image(1100, 400, "tile")
-    .setScale(0.7)
-    .setInteractive();
+    spawnTile(this, 12);
 
-    let tileText = this.add.text(1100, 400, "12", {
-        fontSize: "32px",
-        color: "#ffffff",
-        fontStyle: "bold"
-    }).setOrigin(0.5);
-
-    this.input.setDraggable(tile);
     this.input.on("drag", function (pointer, gameObject, dragX, dragY) {
+
         gameObject.x = dragX;
         gameObject.y = dragY;
 
-        tileText.x = dragX;
-        tileText.y = dragY;
+        if (gameObject.text) {
+            gameObject.text.x = dragX;
+            gameObject.text.y = dragY;
+        }
     });
+
 
     this.input.on("dragend", function (pointer, gameObject) {
 
+        let previousCell = gameObject.currentCell;
+
         let snapped = false;
+        let targetCell = null;
 
         gridCells.forEach(cell => {
 
@@ -76,23 +99,45 @@ function create() {
             );
 
             if (dist < 50 && !cell.occupied && !snapped) {
-                gameObject.x = cell.x;
-                gameObject.y = cell.y;
-
-                tileText.x = cell.x;
-                tileText.y = cell.y;
-
-                cell.occupied = true;
-                cell.value = 12; // temporary
-
+                targetCell = cell;
                 snapped = true;
             }
         });
 
-    
+        if (snapped && targetCell) {
+
+            if (previousCell) {
+                previousCell.occupied = false;
+                previousCell.value = null;
+            }
+
+            gameObject.x = targetCell.x;
+            gameObject.y = targetCell.y;
+            gameObject.text.x = targetCell.x;
+            gameObject.text.y = targetCell.y;
+
+            targetCell.occupied = true;
+            targetCell.value = gameObject.value;
+            gameObject.currentCell = targetCell;
+        }
+
+        if (!snapped) {
+
+            gameObject.x = 1100;
+            gameObject.y = 400;
+            gameObject.text.x = 1100;
+            gameObject.text.y = 400;
+
+            gameObject.currentCell = previousCell;
+        }
     });
 
 
 
-
 }
+
+
+
+
+
+
