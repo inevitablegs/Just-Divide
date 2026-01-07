@@ -24,7 +24,7 @@ const GRID_SIZE = 4;
 const CELL_SIZE = 110;
 const CELL_GAP = 14;
 
-const PANEL_X = 1180;
+const PANEL_X = 1020;
 const KEEP_Y = 365;
 const TRASH_Y = 540;
 const QUEUE_START_Y = 700;
@@ -36,7 +36,6 @@ const config = {
     type: Phaser.AUTO,
     width: 1440,
     height: 1024,
-    backgroundColor: "#f6c1cc",
     scene: { preload, create },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
 };
@@ -47,6 +46,9 @@ const game = new Phaser.Game(config);
 
 function preload() {
     this.load.image("tile", "assets/tile.png");
+    this.load.image("bg", "assets/bg.png");
+    this.load.image("levelCard", "assets/lvl_score.png");
+    this.load.image("catImage", "assets/Cat.png");
 }
 
 function initQueue() {
@@ -268,7 +270,7 @@ function anyMergePossibleForTile(value) {
 function updateHints() {
 
     let scene = game.scene.scenes[0];
-    gridCells.forEach(c => c.rect.setFillStyle(0x0f8ca3));
+    gridCells.forEach(c => c.rect.clearTint());
 
     if (!hintsEnabled || !activeTile) return;
 
@@ -279,9 +281,9 @@ function updateHints() {
         if (cell.occupied) return;
 
         if (mergeExists && canMergeHere(cell, activeTile.value))
-            cell.rect.setFillStyle(0xfff176);
+            cell.rect.setTint(0xfff176);
         else if (!mergeExists)
-            cell.rect.setFillStyle(0xb2ebf2);
+            cell.rect.setTint(0xfff176);
     });
 }
 
@@ -316,7 +318,11 @@ function create() {
 
     const scene = this;
 
-    this.add.rectangle(720, 512, 1440, 1024, 0xf6c1cc);
+    const { width, height } = this.scale;
+
+    let bg = this.add.image(width / 2, height / 2, "bg");
+    bg.setDisplaySize(width, height);   // stretch to screen
+    bg.setDepth(-10);
 
     this.add.text(720, 60, "JUST DIVIDE",
         { fontSize: "48px", color: "#000", fontStyle: "bold" }).setOrigin(0.5);
@@ -329,38 +335,62 @@ function create() {
         { fontSize: "22px", color: "#b82929", fontStyle: "bold" }
     ).setOrigin(0.5);
 
-    this.add.text(720, 225, "🐱", { fontSize: "64px" }).setOrigin(0.5);
+    
 
-    this.levelCard = this.add.rectangle(520, 255, 170, 62, 0xff6b6b)
-        .setStrokeStyle(6, 0xffffff);
-    this.levelText = this.add.text(520, 255, "LEVEL 1",
-        { fontSize: "24px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    this.levelCard = this.add.image(300, 390, "levelCard")
+        .setOrigin(0.5)
+        .setScale(1);
 
-    this.scoreCard = this.add.rectangle(920, 255, 170, 62, 0xff6b6b)
-        .setStrokeStyle(6, 0xffffff);
-    this.scoreText = this.add.text(920, 255, "SCORE 0",
-        { fontSize: "24px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    this.levelText = this.add.text(300, 390, "LEVEL 1", {
+        fontFamily: "Arial",   // or any loaded font
+        fontSize: "30px",
+        fontStyle: 700,
+        color: "#ffffff",
+        stroke: "#8f1d1dff",       // outline color
+        strokeThickness: 5,      // outline width
+    }).setOrigin(0.6);
+
+
+    this.scoreCard = this.add.image(700, 390, "levelCard")
+        .setOrigin(0.5)
+        .setScale(1);
+
+
+    this.scoreText = this.add.text(700, 390, "SCORE 0",
+        {
+            fontFamily: "Arial",   // or any loaded font
+            fontSize: "30px",
+            fontStyle: 700,
+            color: "#ffffff",
+            stroke: "#8f1d1dff",       // outline color
+            strokeThickness: 5,      // outline width
+        }).setOrigin(0.6);
 
     // grid bg
-    this.add.rectangle(GRID_CENTER_X, GRID_CENTER_Y, 540, 540, 0x0c6c7a)
+    this.add.rectangle(GRID_CENTER_X - 220, GRID_CENTER_Y + 30 , 540, 640, 0x0c6c7a)
         .setStrokeStyle(10, 0x64d3e3)
-        .setOrigin(0.5);
+        .setOrigin(0.5)
+        .setDepth(-1);
+
+    this.catImage = this.add.image(GRID_CENTER_X - 220, GRID_CENTER_Y-350, "catImage")
+        .setOrigin(0.5)
+        .setScale(1);
 
     // cells
     gridCells = [];
 
-    const gridStartX = GRID_CENTER_X - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
-    const gridStartY = GRID_CENTER_Y - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
+    const gridStartX = (GRID_CENTER_X - 220)  - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
+    const gridStartY = (GRID_CENTER_Y + 80) - ((GRID_SIZE - 1) * (CELL_SIZE + CELL_GAP)) / 2;
 
     for (let r = 0; r < GRID_SIZE; r++)
         for (let c = 0; c < GRID_SIZE; c++) {
 
             const x = gridStartX + c * (CELL_SIZE + CELL_GAP);
             const y = gridStartY + r * (CELL_SIZE + CELL_GAP);
-
-            let rect = this.add.rectangle(x, y, CELL_SIZE, CELL_SIZE, 0x0f8ca3)
-                .setStrokeStyle(6, 0x64d3e3)
-                .setOrigin(0.5);
+            
+            let rect = this.add.image(x, y, "tile")
+            .setOrigin(.5)
+            .setScale(.8);
 
             gridCells.push({
                 x, y, row: r, col: c,
@@ -370,7 +400,7 @@ function create() {
         }
 
     // side panel
-    this.add.rectangle(PANEL_X, 560, 180, 540, 0xfac561)
+    this.add.rectangle(PANEL_X, 700, 180, 540, 0xfac561)
         .setStrokeStyle(6, 0xffffff);
 
     // keep
