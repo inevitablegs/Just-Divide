@@ -4,6 +4,7 @@ const config = {
     height: 1024,
     backgroundColor: "#f6c1cc",
     scene: {
+        preload,
         create
     },
     scale: {
@@ -14,6 +15,13 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+
+
+
+
+function preload() {
+    this.load.image("tile", "assets/tile.png");
+}
 
 function create() {
     const size = 100;
@@ -30,4 +38,15 @@ function create() {
             ).setStrokeStyle(4, 0xffffff);
         }
     }
+    let tile = this.add.image(1100, 400, "tile")
+    .setScale(0.7)
+    .setInteractive();
+
+    this.input.setDraggable(tile);
+    this.input.on("drag", function (pointer, gameObject, dragX, dragY) {
+        gameObject.x = dragX;
+        gameObject.y = dragY;
+    });
+
+
 }
