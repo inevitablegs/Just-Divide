@@ -14,6 +14,7 @@ let hintsEnabled = false;
 let keptTileValue = null;
 let keepTileText = null;
 
+
 let trashUses = 5;
 
 // Layout constants
@@ -24,13 +25,13 @@ const GRID_SIZE = 4;
 const CELL_SIZE = 110;
 const CELL_GAP = 14;
 
-const PANEL_X = 1020;
-const KEEP_Y = 365;
+const PANEL_X = 1070;
+const KEEP_Y = 435;
 const TRASH_Y = 540;
 const QUEUE_START_Y = 700;
 
-const ACTIVE_TILE_X = PANEL_X;
-const ACTIVE_TILE_Y = 300;
+const ACTIVE_TILE_X = PANEL_X - 10;
+const ACTIVE_TILE_Y = 100;
 
 const config = {
     type: Phaser.AUTO,
@@ -49,6 +50,8 @@ function preload() {
     this.load.image("bg", "assets/bg.png");
     this.load.image("levelCard", "assets/lvl_score.png");
     this.load.image("catImage", "assets/Cat.png");
+    this.load.image("sidePanel", "assets/side_panel.png");
+    this.load.image("keepSlot", "assets/keepSlot.png");
 }
 
 function initQueue() {
@@ -400,22 +403,32 @@ function create() {
         }
 
     // side panel
-    this.add.rectangle(PANEL_X, 700, 180, 540, 0xfac561)
-        .setStrokeStyle(6, 0xffffff);
+    this.add.image(PANEL_X, 650, "sidePanel")
+    .setOrigin(.5)
+    .setScale(1.35);
 
     // keep
-    this.add.text(PANEL_X, 310, "KEEP",
-        { fontSize: "22px", color: "#004444", fontStyle: "bold" }).setOrigin(0.5);
+    this.add.text(PANEL_X - 15, KEEP_Y + 80, "KEEP",{
+        fontSize: "24px", 
+        color: "#006D68", 
+        fontStyle: "900",
+        fontFamily: "Arial",
+        
+    }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
 
-    this.keepBox = this.add.rectangle(PANEL_X, KEEP_Y, 130, 130, 0x9ce5e1)
-        .setStrokeStyle(6, 0xffffff).setInteractive();
-    this.keepBox.area = { x: PANEL_X, y: KEEP_Y, w: 130, h: 130 };
+    this.keepBox = this.add.image(PANEL_X - 15, KEEP_Y, "keepSlot")
+        .setOrigin(.5)
+        .setScale(0.14)
+        .setInteractive();
+    this.keepBox.area = { x: PANEL_X - 15, y: KEEP_Y, w: 130, h: 130 };
+
+
 
     // Trash
-    this.add.text(PANEL_X, 470, "TRASH",
+    this.add.text(PANEL_X, 700, "TRASH",
         { fontSize: "22px", color: "#660000", fontStyle: "bold" }).setOrigin(0.5);
 
-    this.trashBox = this.add.rectangle(PANEL_X, TRASH_Y, 130, 130, 0xff8a80)
+    this.trashBox = this.add.rectangle(PANEL_X, TRASH_Y + 200, 130, 130, 0xff8a80)
         .setStrokeStyle(6, 0x000000).setInteractive();
     this.trashBox.area = { x: PANEL_X, y: TRASH_Y, w: 130, h: 130 };
 
