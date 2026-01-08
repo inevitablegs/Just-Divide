@@ -1,3 +1,39 @@
+const TUTORIAL_PAGES = [
+    {
+        title: "WELCOME",
+        body:
+            "JUST DIVIDE is a number puzzle.\n\n" +
+            "Place tiles on the grid and use division rules to clear space."
+    },
+    {
+        title: "PLACEMENT",
+        body:
+            "Drag the active tile into any empty cell.\n\n" +
+            "Tiles interact with their neighbors."
+    },
+    {
+        title: "MERGING RULES",
+        body:
+            "• Same numbers CANCEL each other\n" +
+            "• Divisible numbers DIVIDE\n" +
+            "• Result 1 disappears"
+    },
+    {
+        title: "KEEP & TRASH",
+        body:
+            "KEEP stores a tile for later.\n\n" +
+            "TRASH removes a tile (limited uses)."
+    },
+    {
+        title: "TIPS",
+        body:
+            "• Plan chains\n" +
+            "• Avoid filling the grid\n" +
+            "• Use KEEP wisely"
+    }
+];
+
+
 let gridCells = [];
 let activeTile = null;
 let tileQueue = [];
@@ -792,7 +828,27 @@ function create() {
     });
 
 
+    this.helpBtn = this.add.circle(
+        this.scale.width - 40,
+        40,
+        18,
+        0x00ffd5
+    ).setDepth(60).setInteractive({ useHandCursor: true });
 
+    this.helpText = this.add.text(
+        this.scale.width - 40,
+        40,
+        "?",
+        {
+            fontSize: "22px",
+            fontStyle: "900",
+            color: "#000"
+        }
+    ).setOrigin(0.5).setDepth(61);
+
+    this.helpBtn.on("pointerdown", () => {
+        showTutorial(this);
+    });
 
 
     this.add.text(720, 160,
@@ -1293,4 +1349,114 @@ function repositionUI(scene, width, height) {
 
     // Timer (top center)
     scene.timerText.setPosition(width / 2, 110);
+}
+
+
+function showTutorial(scene) {
+    gamePaused = true;
+
+    scene.tutorialIndex = 0;
+
+    const { width, height } = scene.scale;
+
+    scene.tutorialOverlay = scene.add.rectangle(
+        width / 2,
+        height / 2,
+        width,
+        height,
+        0x000000,
+        0.7
+    ).setDepth(200);
+
+    scene.tutorialPanel = scene.add.rectangle(
+        width / 2,
+        height / 2,
+        520,
+        420,
+        0xffffff
+    ).setDepth(201).setStrokeStyle(5, 0x00ffd5);
+
+    scene.tutorialTitle = scene.add.text(
+        width / 2,
+        height / 2 - 150,
+        "",
+        {
+            fontSize: "28px",
+            fontStyle: "900",
+            color: "#000"
+        }
+    ).setOrigin(0.5).setDepth(202);
+
+    scene.tutorialBody = scene.add.text(
+        width / 2,
+        height / 2 - 40,
+        "",
+        {
+            fontSize: "20px",
+            color: "#333",
+            align: "center",
+            wordWrap: { width: 440 }
+        }
+    ).setOrigin(0.5).setDepth(202);
+
+    // Buttons
+    scene.tutorialPrev = scene.add.text(
+        width / 2 - 140,
+        height / 2 + 150,
+        "◀ PREV",
+        { fontSize: "20px", fontStyle: "900", color: "#00a0a0" }
+    ).setOrigin(0.5).setDepth(202).setInteractive();
+
+    scene.tutorialNext = scene.add.text(
+        width / 2 + 140,
+        height / 2 + 150,
+        "NEXT ▶",
+        { fontSize: "20px", fontStyle: "900", color: "#00a0a0" }
+    ).setOrigin(0.5).setDepth(202).setInteractive();
+
+    scene.tutorialClose = scene.add.text(
+        width / 2,
+        height / 2 + 190,
+        "CLOSE",
+        { fontSize: "18px", fontStyle: "900", color: "#d62828" }
+    ).setOrigin(0.5).setDepth(202).setInteractive();
+
+    updateTutorialPage(scene);
+
+    scene.tutorialNext.on("pointerdown", () => {
+        if (scene.tutorialIndex < TUTORIAL_PAGES.length - 1) {
+            scene.tutorialIndex++;
+            updateTutorialPage(scene);
+        }
+    });
+
+    scene.tutorialPrev.on("pointerdown", () => {
+        if (scene.tutorialIndex > 0) {
+            scene.tutorialIndex--;
+            updateTutorialPage(scene);
+        }
+    });
+
+    scene.tutorialClose.on("pointerdown", () => {
+        hideTutorial(scene);
+    });
+}
+
+
+function updateTutorialPage(scene) {
+    const page = TUTORIAL_PAGES[scene.tutorialIndex];
+    scene.tutorialTitle.setText(page.title);
+    scene.tutorialBody.setText(page.body);
+}
+
+function hideTutorial(scene) {
+    gamePaused = false;
+
+    scene.tutorialOverlay.destroy();
+    scene.tutorialPanel.destroy();
+    scene.tutorialTitle.destroy();
+    scene.tutorialBody.destroy();
+    scene.tutorialPrev.destroy();
+    scene.tutorialNext.destroy();
+    scene.tutorialClose.destroy();
 }
