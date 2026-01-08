@@ -158,7 +158,7 @@ function advanceQueue(scene) {
             scene.queueTexts = scene.queueSlots.map(s => s.label);
 
             // update "next tile" highlight
-            scene.queueSlots.forEach((s,i)=>{
+            scene.queueSlots.forEach((s, i) => {
                 const isNext = (i === 0);
                 s.frame.setVisible(isNext);
                 s.bg.setScale(isNext ? 0.9 : 0.8);
@@ -257,6 +257,16 @@ function updateScore() {
     let s = game.scene.scenes[0];
     s.scoreText.setText("SCORE " + score);
     s.levelText.setText("LEVEL " + level);
+    s.bestText.setText("BEST " + bestScore);
+
+    let newLevel = Math.floor(score / 10) + 1;
+    if (newLevel > level) {
+        trashUses += 2; // or reset to fixed number
+        scene.trashText.setText("x" + trashUses);
+    }
+    level = newLevel;
+
+
 }
 
 
@@ -394,20 +404,20 @@ function isInsideBox(obj, box) {
 
 
 
-function createQueueSlot(scene, x, y, value, isNext=false) {
+function createQueueSlot(scene, x, y, value, isNext = false) {
 
     const bg = scene.add.image(x, y, getTileTexture(value))
         .setScale(isNext ? 0.9 : 0.8);
 
     const label = scene.add.text(x, y, value, {
-        fontSize: isNext ? "50px": "45px",
+        fontSize: isNext ? "50px" : "45px",
         color: "#00000055",
         fontStyle: 900,
         fontFamily: "Fredoka"
     }).setOrigin(0.5);
 
     // rounded-style frame (fake using thicker stroke + scale)
-    const frame = scene.add.rectangle(x, y+20, 70, 70)
+    const frame = scene.add.rectangle(x, y + 20, 70, 70)
         .setStrokeStyle(4, 0x00ffd5)
         .setVisible(isNext)
         .setScale(1.15);
@@ -437,6 +447,22 @@ function createQueueSlot(scene, x, y, value, isNext=false) {
     return { bg, label, frame };
 }
 
+
+function isGameOver() {
+    const full = gridCells.every(c => c.occupied);
+    if (!full) return false;
+
+    return !gridCells.some(c => {
+        if (!c.occupied) return false;
+        return getNeighbors(c).some(n => {
+            if (!n.occupied) return false;
+            if (n.value === c.value) return true;
+            let big = Math.max(n.value, c.value);
+            let small = Math.min(n.value, c.value);
+            return big % small === 0;
+        });
+    });
+}
 
 
 
@@ -493,6 +519,17 @@ function create() {
             strokeThickness: 5,      // outline width
         }).setOrigin(0.6);
 
+    this.bestText = this.add.text(900, 250, "BEST : " + bestScore,
+        {
+            fontFamily: "Arial",   // or any loaded font
+            fontSize: "30px",
+            fontStyle: 700,
+            color: "#ffffff",
+            stroke: "#8f1d1dff",       // outline color
+            strokeThickness: 5,      // outline width
+        }).setOrigin(0.6);
+
+
     // grid bg
     this.add.rectangle(GRID_CENTER_X - 220, GRID_CENTER_Y + 30, 540, 640, 0x0c6c7a)
         .setStrokeStyle(10, 0x64d3e3)
@@ -548,7 +585,7 @@ function create() {
     this.keepBox.area = { x: PANEL_X - 15, y: KEEP_Y, w: 100, h: 100 };
 
     //queue holder
-    this.add.image(PANEL_X-15, 712.5, "queueHolder")
+    this.add.image(PANEL_X - 15, 712.5, "queueHolder")
         .setOrigin(.5)
         .setScale(.15);
 
@@ -719,6 +756,9 @@ function dragEndHandler(pointer, tile) {
         checkDivisibleMerge(targetCell);
 
         updateHints();
+
+        if (isGameOver()) { showGameOverUI(); return; }
+
         return;
     }
 
@@ -726,4 +766,112 @@ function dragEndHandler(pointer, tile) {
     tile.x = ACTIVE_TILE_X;
     tile.y = ACTIVE_TILE_Y;
     tile.currentCell = previousCell;
+}
+
+
+function showGameOverUI() {
+    const scene = game.scene.scenes[0];
+
+    // Prevent double triggering
+    if (scene.gameOverShown) return;
+    scene.gameOverShown = true;
+
+    // Disable dragging
+    scene.input.off("drag");
+    scene.input.off("dragend");
+
+    // Dark overlay
+    const overlay = scene.add.rectangle(
+        scene.scale.width / 2,
+        scene.scale.height / 2,
+        scene.scale.width,
+        scene.scale.height,
+        0x000000,
+        0.6
+    ).setDepth(100);
+
+    // Panel
+    const panel = scene.add.rectangle(
+        scene.scale.width / 2,
+        scene.scale.height / 2,
+        520,
+        420,
+        0xffffff
+    ).setDepth(101).setStrokeStyle(6, 0xff9f1c);
+
+    // GAME OVER text
+    scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2 - 130,
+        "GAME OVER",
+        {
+            fontSize: "48px",
+            fontStyle: "900",
+            color: "#d62828",
+            fontFamily: "Arial"
+        }
+    ).setOrigin(0.5).setDepth(102);
+
+    // Final Score
+    scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2 - 40,
+        `SCORE: ${score}`,
+        {
+            fontSize: "32px",
+            fontStyle: "bold",
+            color: "#333"
+        }
+    ).setOrigin(0.5).setDepth(102);
+
+    // Best Score
+    scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2 + 10,
+        `BEST: ${bestScore}`,
+        {
+            fontSize: "26px",
+            fontStyle: "bold",
+            color: "#666"
+        }
+    ).setOrigin(0.5).setDepth(102);
+
+    // Restart Button
+    const restartBtn = scene.add.rectangle(
+        scene.scale.width / 2,
+        scene.scale.height / 2 + 100,
+        220,
+        60,
+        0xff9f1c
+    ).setDepth(102).setInteractive();
+
+    const restartText = scene.add.text(
+        scene.scale.width / 2,
+        scene.scale.height / 2 + 100,
+        "RESTART",
+        {
+            fontSize: "28px",
+            fontStyle: "900",
+            color: "#ffffff"
+        }
+    ).setOrigin(0.5).setDepth(103);
+
+    restartBtn.on("pointerdown", () => {
+        score = 0;
+        level = 1;
+        trashUses = 5;
+        undoStack.length = 0;
+        keptTile = null;
+        keptTileValue = null;
+
+        scene.scene.restart();
+    });
+
+    // Small pop animation
+    scene.tweens.add({
+        targets: panel,
+        scale: { from: 0.8, to: 1 },
+        duration: 220,
+        ease: "Back.easeOut"
+    });
 }
