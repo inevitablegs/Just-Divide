@@ -106,6 +106,12 @@ function createTile(scene, x, y, value) {
 
     scene.input.setDraggable(tile);
 
+    tile.setDepth(1);
+    tile.setAlpha(1);
+    tile.setScale(1);
+    tile.setVisible(true);
+
+
     return tile;
 }
 
@@ -115,7 +121,7 @@ function createTile(scene, x, y, value) {
 function spawnTile(scene, value) {
 
     activeTile = createTile(scene, ACTIVE_TILE_X, ACTIVE_TILE_Y, value);
-    activeTile.setInteractive().setDepth(1);
+    activeTile.setInteractive().setDepth(2);
 
     updateHints();
 }
@@ -232,14 +238,19 @@ function checkDivisibleMerge(cell) {
 }
 
 function spawnMergedTile(x, y, value, cell) {
+    const scene = game.scene.scenes[0];
 
-    let tile = createTile(game.scene.scenes[0], x, y, value);
+    const tile = createTile(scene, x, y, value);
 
     cell.occupied = true;
     cell.value = value;
     cell.tile = tile;
     tile.currentCell = cell;
+
+    animateSpawn(tile, scene);
+    animatePop(tile, scene);
 }
+
 
 
 // Score
@@ -271,65 +282,123 @@ function updateScore() {
 
 
 // Undo
-
 function saveGameState() {
-
-    let snapshot = gridCells.map(c => ({
-        row: c.row, col: c.col,
-        occupied: c.occupied, value: c.value
-    }));
-
     undoStack.push({
-        grid: snapshot,
+        grid: gridCells.map(c => ({
+            row: c.row,
+            col: c.col,
+            occupied: c.occupied,
+            value: c.value
+        })),
         queue: [...tileQueue],
-        score, level,
+        score,
+        level,
+        bestScore,
+        trashUses,
+        keptTileValue: keptTile ? keptTile.value : null,
         activeTileValue: activeTile ? activeTile.value : null
     });
 
     if (undoStack.length > MAX_UNDO) undoStack.shift();
 }
 
-function restoreGameState(state) {
-
-    let scene = game.scene.scenes[0];
-
+function clearAllTiles(scene) {
     gridCells.forEach(c => {
-        if (c.tile) { c.tile.destroy(); }
-        c.occupied = false; c.value = null; c.tile = null;
+        if (c.tile) c.tile.destroy();
+        c.tile = null;
+        c.value = null;
+        c.occupied = false;
     });
 
-    state.grid.forEach(s => {
+    if (activeTile) activeTile.destroy();
+    activeTile = null;
 
+    if (keptTile) keptTile.destroy();
+    keptTile = null;
+}
+
+function restoreGameState(state) {
+    const scene = game.scene.scenes[0];
+
+    clearAllTiles(scene);
+
+    // Restore grid
+    state.grid.forEach(s => {
         if (!s.occupied) return;
 
-        let cell = gridCells.find(c => c.row === s.row && c.col === s.col);
+        const cell = gridCells.find(
+            c => c.row === s.row && c.col === s.col
+        );
 
-        let tile = createTile(scene, cell.x, cell.y, s.value);
+        const tile = createTile(scene, cell.x, cell.y, s.value);
+        tile.disableInteractive();
+
         cell.tile = tile;
-        tile.currentCell = cell;
-        let text = scene.add.text(cell.x, cell.y, s.value, {
-            fontSize: "32px", color: "#ffffff", fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        cell.occupied = true;
         cell.value = s.value;
-        cell.tile = tile;
-        tile.text = text;
+        cell.occupied = true;
+        tile.currentCell = cell;
     });
 
+    // Restore queue
     tileQueue = [...state.queue];
-    scene.queueTexts.forEach((t, i) => t.setText(tileQueue[i]));
+    rebuildQueueUI(scene);
 
+    // Restore scores
     score = state.score;
     level = state.level;
+    bestScore = state.bestScore;
+    trashUses = state.trashUses;
 
     scene.scoreText.setText("SCORE " + score);
     scene.levelText.setText("LEVEL " + level);
+    scene.bestText.setText("BEST : " + bestScore);
+    scene.trashText.setText("x" + trashUses);
 
-    if (c.tile) { c.tile.destroy(); }
-    if (state.activeTileValue !== null) spawnTile(scene, state.activeTileValue);
+    // Restore kept tile
+    if (state.keptTileValue !== null) {
+        keptTile = createTile(
+            scene,
+            PANEL_X - 15,
+            KEEP_Y,
+            state.keptTileValue
+        );
+        keptTile.disableInteractive();
+    }
+
+    // Restore active tile
+    if (state.activeTileValue !== null) {
+        spawnTile(scene, state.activeTileValue);
+    }
 
     updateHints();
+}
+
+
+function rebuildQueueUI(scene) {
+    scene.queueSlots.forEach(s => {
+        s.bg.destroy();
+        s.label.destroy();
+        s.frame.destroy();
+    });
+
+    scene.queueSlots = [];
+    scene.queueTexts = [];
+
+    const START_X = PANEL_X - 50;
+    const START_Y = QUEUE_START_Y + 20;
+    const SPACING = 80;
+
+    tileQueue.forEach((value, i) => {
+        const slot = createQueueSlot(
+            scene,
+            START_X + i * SPACING,
+            START_Y,
+            value,
+            i === 0
+        );
+        scene.queueSlots.push(slot);
+        scene.queueTexts.push(slot.label);
+    });
 }
 
 
@@ -466,11 +535,9 @@ function isGameOver() {
 
 
 function resolveMerges(cell) {
-    let merged = true;
+    const scene = game.scene.scenes[0];
 
-    while (merged) {
-        merged = false;
-
+    function tryMerge() {
         let neighbors = getNeighbors(cell);
 
         for (let n of neighbors) {
@@ -479,32 +546,53 @@ function resolveMerges(cell) {
             let a = cell.value;
             let b = n.value;
 
-            // ❌ EQUAL → CANCEL
+            // ❌ CANCEL
             if (a === b) {
-                destroyPair(cell, n);
-                merged = true;
-                break;
+                destroyPairAnimated(cell, n, () => {
+                    // cellA cleared AFTER animation
+                    cell.occupied = false;
+                    cell.value = null;
+                    cell.tile = null;
+                    tryMerge();
+                });
+                return;
             }
 
-            // ➗ DIVISIBLE → DIVIDE
-            let larger = Math.max(a, b);
-            let smaller = Math.min(a, b);
+            // ➗ DIVIDE
+            let big = Math.max(a, b);
+            let small = Math.min(a, b);
 
-            if (larger % smaller === 0) {
-                let result = larger / smaller;
-                destroyPair(cell, n);
+            if (big % small === 0) {
+                let result = big / small;
 
-                if (result !== 1) {
-                    spawnMergedTile(cell.x, cell.y, result, cell);
-                }
+                destroyPairAnimated(cell, n, () => {
+                    if (result !== 1) {
+                        cell.value = result;
+                        cell.occupied = true;
 
-                updateScore();
-                merged = true;
-                break;
+                        const newTile = createTile(scene, cell.x, cell.y, result);
+                        cell.tile = newTile;
+                        newTile.currentCell = cell;
+
+                        animateSpawn(newTile, scene);
+                        animatePop(newTile, scene);
+                    } else {
+                        cell.occupied = false;
+                        cell.value = null;
+                        cell.tile = null;
+                    }
+
+                    tryMerge();
+                });
+                return;
             }
         }
     }
+
+    tryMerge();
 }
+
+
 
 
 
@@ -531,26 +619,86 @@ function performMerge(cellA, cellB, newValue) {
     updateScore();
 }
 
-function destroyPair(cellA, cellB) {
-    cellA.tile.destroy();
-    cellB.tile.destroy();
+function destroyPairAnimated(cellA, cellB, onDone) {
+    const scene = game.scene.scenes[0];
 
-    cellA.occupied = false;
+    const tileA = cellA.tile;
+    const tileB = cellB.tile;
+
+    // 🔒 LOGIC FIRST — LOCK CELL
     cellB.occupied = false;
-
-    cellA.tile = null;
+    cellB.value = null;
     cellB.tile = null;
 
-    cellA.value = null;
-    cellB.value = null;
+    animateMoveInto(tileB, tileA, scene, () => {
+        animateCancel(tileA, tileB, scene, () => {
+            tileA.destroy();
+            tileB.destroy();
+            updateScore();
+            if (onDone) onDone();
+        });
+    });
+}
 
-    updateScore();
+
+
+
+
+// Animations
+
+function animateMoveInto(sourceTile, targetTile, scene, onComplete) {
+    scene.tweens.add({
+        targets: sourceTile,
+        x: targetTile.x,
+        y: targetTile.y,
+        duration: 120,
+        ease: "Quad.easeIn",
+        onComplete
+    });
+}
+
+function animateCancel(tileA, tileB, scene, onComplete) {
+    scene.tweens.add({
+        targets: [tileA, tileB],
+        scale: 0,
+        alpha: 0,
+        duration: 140,
+        ease: "Back.easeIn",
+        onComplete
+    });
+}
+
+function animateSpawn(tile, scene) {
+    tile.setVisible(true);
+    tile.setAlpha(1);
+    tile.setScale(1);
+
+    scene.tweens.add({
+        targets: tile,
+        scale: 1,
+        duration: 160,
+        ease: "Back.easeOut"
+    });
+}
+
+
+function animatePop(tile, scene) {
+    scene.tweens.add({
+        targets: tile,
+        scale: 1.15,
+        duration: 80,
+        yoyo: true,
+        ease: "Quad.easeOut"
+    });
 }
 
 
 // ui
 
 function create() {
+    this.gameOverShown = false;
+    keptTile = null;
+    keptTileValue = null;
 
     const scene = this;
 
@@ -560,12 +708,12 @@ function create() {
     bg.setDisplaySize(width, height).setDepth(-10);
 
     this.add.text(720, 60, "JUST DIVIDE",
-        { 
-            fontSize: "48px", 
-            color: "#000", 
-            fontStyle: 900      ,
+        {
+            fontSize: "48px",
+            color: "#000",
+            fontStyle: 900,
             fontFamily: "Arial"
-         }).setOrigin(0.5);
+        }).setOrigin(0.5);
 
     this.add.text(720, 110, "⏳ 00:07",
         { fontSize: "24px", color: "#000" }).setOrigin(0.5);
@@ -823,10 +971,10 @@ function dragEndHandler(pointer, tile) {
         }
     });
 
-    saveGameState();
+
 
     if (snapped && targetCell) {
-
+        saveGameState();
         if (previousCell) {
             previousCell.occupied = false;
             previousCell.value = null;
@@ -860,6 +1008,27 @@ function dragEndHandler(pointer, tile) {
     tile.x = ACTIVE_TILE_X;
     tile.y = ACTIVE_TILE_Y;
     tile.currentCell = previousCell;
+}
+
+function resetGameState() {
+    // Core state
+    score = 0;
+    level = 1;
+    trashUses = 5;
+    hintsEnabled = false;
+
+    // Tiles & containers
+    activeTile = null;
+    keptTile = null;
+    keptTileValue = null;
+
+    // Queues & undo
+    tileQueue = [];
+    undoStack.length = 0;
+
+    // Game over flag
+    const scene = game.scene.scenes[0];
+    if (scene) scene.gameOverShown = false;
 }
 
 
@@ -951,15 +1120,17 @@ function showGameOverUI() {
     ).setOrigin(0.5).setDepth(103);
 
     restartBtn.on("pointerdown", () => {
-        score = 0;
-        level = 1;
-        trashUses = 5;
-        undoStack.length = 0;
-        keptTile = null;
-        keptTileValue = null;
+        const scene = game.scene.scenes[0];
+
+        // Kill tweens & input safely
+        scene.tweens.killAll();
+        scene.input.removeAllListeners();
+
+        resetGameState();
 
         scene.scene.restart();
     });
+
 
     // Small pop animation
     scene.tweens.add({
