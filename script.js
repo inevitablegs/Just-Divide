@@ -45,17 +45,12 @@ const config = {
 const game = new Phaser.Game(config);
 
 
-const TILE_TEXTURES = {
-    2: "tile2",
-    3: "tile3",
-    4: "tile4",
-    5: "tile5",
-    6: "tile6",
-    7: "tile7",
-    11: "tile11",
-    12: "tile12",
-    13: "tile13"
-};
+const TILE_TEXTURES = {};
+
+for (let i = 1; i <= 16; i++) {
+    TILE_TEXTURES[i] = `tile${i}`;
+}
+
 
 function getTileTexture(value) {
     return TILE_TEXTURES[value] || "tile"; // fallback
@@ -73,20 +68,19 @@ function preload() {
     this.load.image("queueHolder", "assets/queueHolder.png");
 
 
-    this.load.image("tile2", "assets/tiles/2.png");
-    this.load.image("tile3", "assets/tiles/3.png");
-    this.load.image("tile4", "assets/tiles/4.png");
-    this.load.image("tile5", "assets/tiles/5.png");
-    this.load.image("tile6", "assets/tiles/6.png");
-    this.load.image("tile7", "assets/tiles/7.png");
-    this.load.image("tile11", "assets/tiles/11.png");
-    this.load.image("tile12", "assets/tiles/12.png");
-    this.load.image("tile13", "assets/tiles/13.png");
+    for (let i = 1; i <= 16; i++) {
+        this.load.image(`tile${i}`, `assets/tiles/${i}.png`);
+    }
+
 }
 
 function initQueue() {
-    tileQueue = [4, 6];
+    tileQueue = [
+        Phaser.Math.Between(1, 16),
+        Phaser.Math.Between(1, 16)
+    ];
 }
+
 
 function createTile(scene, x, y, value) {
 
@@ -131,7 +125,8 @@ function spawnTile(scene, value) {
 function advanceQueue(scene) {
 
     let nextValue = tileQueue.shift();
-    tileQueue.push(Phaser.Math.RND.pick([2,3,4,5,7,11,13]));
+    tileQueue.push(Phaser.Math.Between(1, 16));
+
 
     // animate slide-left shift
     scene.tweens.add({
