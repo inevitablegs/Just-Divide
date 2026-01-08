@@ -257,7 +257,7 @@ function updateScore() {
     let s = game.scene.scenes[0];
     s.scoreText.setText("SCORE " + score);
     s.levelText.setText("LEVEL " + level);
-    s.bestText.setText("BEST " + bestScore);
+    s.bestText.setText("BEST : " + bestScore);
 
     let newLevel = Math.floor(score / 10) + 1;
     if (newLevel > level) {
@@ -478,14 +478,26 @@ function create() {
     bg.setDisplaySize(width, height).setDepth(-10);
 
     this.add.text(720, 60, "JUST DIVIDE",
-        { fontSize: "48px", color: "#000", fontStyle: "bold" }).setOrigin(0.5);
+        { 
+            fontSize: "48px", 
+            color: "#000", 
+            fontStyle: 900      ,
+            fontFamily: "Arial"
+         }).setOrigin(0.5);
 
     this.add.text(720, 110, "⏳ 00:07",
         { fontSize: "24px", color: "#000" }).setOrigin(0.5);
 
     this.add.text(720, 160,
         "DIVIDE WITH THE NUMBERS TO SOLVE THE ROWS AND COLUMNS.",
-        { fontSize: "22px", color: "#b82929", fontStyle: "bold" }
+        {
+            fontSize: "30px",
+            color: "#fcd28d",
+            fontStyle: 900,
+            fontFamily: "Arial",
+            stroke: "#b82929",
+            strokeThickness: 6
+        }
     ).setOrigin(0.5);
 
 
