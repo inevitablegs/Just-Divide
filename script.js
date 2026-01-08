@@ -18,6 +18,12 @@ let keptTile = null;
 
 let trashUses = 5;
 
+
+let gameRunning = true;
+let gamePaused = false;
+let elapsedSeconds = 0;
+let timerEvent = null;
+
 // Layout constants
 const GRID_CENTER_X = 720;
 const GRID_CENTER_Y = 620;
@@ -129,52 +135,70 @@ function spawnTile(scene, value) {
 // Queue
 
 function advanceQueue(scene) {
+    const ACTIVE_X = ACTIVE_TILE_X;
+    const ACTIVE_Y = ACTIVE_TILE_Y;
 
-    let nextValue = tileQueue.shift();
-    tileQueue.push(Phaser.Math.Between(1, 16));
+    // Take first queue slot
+    const firstSlot = scene.queueSlots.shift();
+    const nextValue = tileQueue.shift();
 
-
-    // animate slide-left shift
+    // Animate that slot into active position
     scene.tweens.add({
-        targets: scene.queueSlots.map(s => [s.bg, s.label, s.frame]).flat(),
-        x: "-=80",
+        targets: [firstSlot.bg, firstSlot.label],
+        x: ACTIVE_X,
+        y: ACTIVE_Y,
+        scale: 1,
         duration: 220,
         ease: "Quad.easeInOut",
         onComplete: () => {
 
-            // destroy old first slot
-            const dead = scene.queueSlots.shift();
-            dead.bg.destroy();
-            dead.label.destroy();
-            dead.frame.destroy();
+            // Destroy queue visuals of moved tile
+            firstSlot.bg.destroy();
+            firstSlot.label.destroy();
+            firstSlot.frame.destroy();
 
-            // create new last slot (fade-in)
-            const LAST_X = scene.queueSlots.at(-1).bg.x + 80;
-            const LAST_Y = QUEUE_START_Y;
+            // Spawn ACTIVE tile properly
+            spawnTile(scene, nextValue);
+
+            // Shift remaining queue visuals left
+            scene.queueSlots.forEach((slot) => {
+                slot.bg.x -= 80;
+                slot.label.x -= 80;
+                slot.frame.x -= 80;
+            });
+
+            // Add new value to queue
+            const newValue = Phaser.Math.Between(1, 16);
+            tileQueue.push(newValue);
+
+            const lastX =
+                scene.queueSlots.length > 0
+                    ? scene.queueSlots.at(-1).bg.x + 80
+                    : PANEL_X - 50;
 
             const slot = createQueueSlot(
                 scene,
-                LAST_X,
-                LAST_Y + 20,
-                tileQueue.at(-1),
+                lastX,
+                QUEUE_START_Y + 20,
+                newValue,
                 false
             );
 
             scene.queueSlots.push(slot);
-            scene.queueTexts = scene.queueSlots.map(s => s.label);
 
-            // update "next tile" highlight
+            // Update highlight
             scene.queueSlots.forEach((s, i) => {
-                const isNext = (i === 0);
+                const isNext = i === 0;
                 s.frame.setVisible(isNext);
                 s.bg.setScale(isNext ? 0.9 : 0.8);
                 s.label.setFontSize(isNext ? 50 : 45);
             });
+
+            updateHints();
         }
     });
-
-    spawnTile(scene, nextValue);
 }
+
 
 
 
@@ -693,6 +717,32 @@ function animatePop(tile, scene) {
 }
 
 
+
+function startTimer(scene) {
+    if (timerEvent) timerEvent.remove(false);
+
+    elapsedSeconds = 0;
+    scene.timerText.setText("⏳ 00:00");
+
+    timerEvent = scene.time.addEvent({
+        delay: 1000,
+        loop: true,
+        callback: () => {
+            if (!gameRunning || gamePaused) return;
+
+            elapsedSeconds++;
+            scene.timerText.setText("⏳ " + formatTime(elapsedSeconds));
+        }
+    });
+}
+
+
+function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = (sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+}
+
 // ui
 
 function create() {
@@ -715,8 +765,35 @@ function create() {
             fontFamily: "Arial"
         }).setOrigin(0.5);
 
-    this.add.text(720, 110, "⏳ 00:07",
-        { fontSize: "24px", color: "#000" }).setOrigin(0.5);
+    this.timerText = this.add.text(
+        720,
+        110,
+        "⏳ 00:00",
+        { fontSize: "24px", color: "#000" }
+    ).setOrigin(0.5);
+
+
+
+    this.pauseBtn = this.add.rectangle(80, 60, 120, 40, 0x00ffd5)
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+
+    this.pauseText = this.add.text(80, 60, "PAUSE", {
+        fontSize: "18px",
+        fontStyle: "900",
+        color: "#000"
+    }).setOrigin(0.5);
+
+
+
+    this.pauseBtn.on("pointerdown", () => {
+        gamePaused = !gamePaused;
+        this.pauseText.setText(gamePaused ? "RESUME" : "PAUSE");
+    });
+
+
+
+
 
     this.add.text(720, 160,
         "DIVIDE WITH THE NUMBERS TO SOLVE THE ROWS AND COLUMNS.",
@@ -883,34 +960,88 @@ function create() {
 
 
 
-    spawnTile(this, tileQueue[0]);
+    const margin = 20;
+
+    this.fullscreenBtn = this.add.rectangle(
+        this.scale.width - margin - 40,
+        this.scale.height - margin - 40,
+        60,
+        40,
+        0x00ffd5
+    ).setOrigin(1).setDepth(50).setInteractive({ useHandCursor: true });
+
+    this.fullscreenText = this.add.text(
+        this.fullscreenBtn.x - 30,
+        this.fullscreenBtn.y - 20,
+        "⛶",
+        {
+            fontSize: "26px",
+            fontStyle: "900",
+            color: "#000"
+        }
+    ).setDepth(51).setOrigin(0.5);
+
+    this.fullscreenBtn.on("pointerdown", () => {
+        if (!this.scale.isFullscreen) {
+            this.scale.startFullscreen();
+        } else {
+            this.scale.stopFullscreen();
+        }
+    });
+
+    this.scale.on("resize", (gameSize) => {
+        const { width, height } = gameSize;
+        repositionUI(this, width, height);
+    });
+
+
+
+
+    gameRunning = true;
+    gamePaused = false;
+
+
+
+
+    spawnTile(this, tileQueue.shift());
+    tileQueue.push(Phaser.Math.Between(1, 16));
+    rebuildQueueUI(this);
+    startTimer(this);
+
+
 
 
     // Drag
     this.input.on("drag", (_, tile, x, y) => {
+        if (gamePaused) return;
         tile.x = x;
         tile.y = y;
     });
 
+
     this.input.on("dragend", dragEndHandler, this);
 
-    // Undo
     this.input.keyboard.on("keydown-Z", () => {
+        if (gamePaused) return;
         if (!undoStack.length) return;
         restoreGameState(undoStack.pop());
     });
 
-    // hints
     this.input.keyboard.on("keydown-G", () => {
+        if (gamePaused) return;
         hintsEnabled = !hintsEnabled;
         updateHints();
     });
+
 }
 
 
 
 
 function dragEndHandler(pointer, tile) {
+
+
+    if (gamePaused) return;
 
     let scene = this;
     let previousCell = tile.currentCell;
@@ -1139,4 +1270,27 @@ function showGameOverUI() {
         duration: 220,
         ease: "Back.easeOut"
     });
+}
+
+
+function repositionUI(scene, width, height) {
+
+    // Fullscreen button (bottom-right)
+    const margin = 20;
+
+    scene.fullscreenBtn
+        .setPosition(width - margin, height - margin);
+
+    scene.fullscreenText
+        .setPosition(
+            scene.fullscreenBtn.x - 30,
+            scene.fullscreenBtn.y - 20
+        );
+
+    // Pause button (top-left) — keep it responsive
+    scene.pauseBtn.setPosition(80, 60);
+    scene.pauseText.setPosition(80, 60);
+
+    // Timer (top center)
+    scene.timerText.setPosition(width / 2, 110);
 }
