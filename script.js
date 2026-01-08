@@ -465,6 +465,88 @@ function isGameOver() {
 }
 
 
+function resolveMerges(cell) {
+    let merged = true;
+
+    while (merged) {
+        merged = false;
+
+        let neighbors = getNeighbors(cell);
+
+        for (let n of neighbors) {
+            if (!n.occupied) continue;
+
+            let a = cell.value;
+            let b = n.value;
+
+            // ❌ EQUAL → CANCEL
+            if (a === b) {
+                destroyPair(cell, n);
+                merged = true;
+                break;
+            }
+
+            // ➗ DIVISIBLE → DIVIDE
+            let larger = Math.max(a, b);
+            let smaller = Math.min(a, b);
+
+            if (larger % smaller === 0) {
+                let result = larger / smaller;
+                destroyPair(cell, n);
+
+                if (result !== 1) {
+                    spawnMergedTile(cell.x, cell.y, result, cell);
+                }
+
+                updateScore();
+                merged = true;
+                break;
+            }
+        }
+    }
+}
+
+
+
+function performMerge(cellA, cellB, newValue) {
+    const scene = game.scene.scenes[0];
+
+    // Destroy old tiles
+    cellA.tile.destroy();
+    cellB.tile.destroy();
+
+    cellA.occupied = false;
+    cellB.occupied = false;
+    cellA.tile = cellB.tile = null;
+    cellA.value = cellB.value = null;
+
+    // Spawn merged tile at cellA
+    const tile = createTile(scene, cellA.x, cellA.y, newValue);
+
+    cellA.occupied = true;
+    cellA.value = newValue;
+    cellA.tile = tile;
+    tile.currentCell = cellA;
+
+    updateScore();
+}
+
+function destroyPair(cellA, cellB) {
+    cellA.tile.destroy();
+    cellB.tile.destroy();
+
+    cellA.occupied = false;
+    cellB.occupied = false;
+
+    cellA.tile = null;
+    cellB.tile = null;
+
+    cellA.value = null;
+    cellB.value = null;
+
+    updateScore();
+}
+
 
 // ui
 
@@ -764,8 +846,8 @@ function dragEndHandler(pointer, tile) {
 
         advanceQueue(scene);
 
-        checkEqualMerge(targetCell);
-        checkDivisibleMerge(targetCell);
+        resolveMerges(targetCell);
+
 
         updateHints();
 
