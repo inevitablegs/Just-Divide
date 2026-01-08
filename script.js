@@ -29,10 +29,10 @@ const CELL_GAP = 14;
 const PANEL_X = 1070;
 const KEEP_Y = 435;
 const TRASH_Y = 860;
-const QUEUE_START_Y = 680;
+const QUEUE_START_Y = 700;
 
-const ACTIVE_TILE_X = PANEL_X - 10;
-const ACTIVE_TILE_Y = 100;
+const ACTIVE_TILE_X = PANEL_X - 15;
+const ACTIVE_TILE_Y = 600;
 
 const config = {
     type: Phaser.AUTO,
@@ -93,9 +93,10 @@ function createTile(scene, x, y, value) {
     const sprite = scene.add.image(0, 0, getTileTexture(value)).setScale(1);
 
     const label = scene.add.text(0, 0, value, {
-        fontSize: "32px",
-        color: "#ffffff",
-        fontStyle: "bold"
+        fontSize: "50px",
+        color: "#00000055",
+        fontStyle: 900,
+        fontFamily: "Fredoka"
     }).setOrigin(0.5);
 
     const tile = scene.add.container(x, y, [sprite, label]);
@@ -120,7 +121,7 @@ function createTile(scene, x, y, value) {
 function spawnTile(scene, value) {
 
     activeTile = createTile(scene, ACTIVE_TILE_X, ACTIVE_TILE_Y, value);
-    activeTile.setInteractive();
+    activeTile.setInteractive().setDepth(1);
 
     updateHints();
 }
@@ -166,7 +167,7 @@ function advanceQueue(scene) {
                 const isNext = (i === 0);
                 s.frame.setVisible(isNext);
                 s.bg.setScale(isNext ? 0.9 : 0.8);
-                s.label.setFontSize(isNext ? 28 : 22);
+                s.label.setFontSize(isNext ? 50 : 45);
             });
         }
     });
@@ -377,7 +378,7 @@ function updateKeepDisplay(scene) {
     if (keepTileText) { keepTileText.destroy(); keepTileText = null; }
 
     if (keptTileValue !== null) {
-        keepTileText = scene.add.text(PANEL_X, KEEP_Y, keptTileValue, {
+        keepTileText = scene.add.text(PANEL_X - 15, KEEP_Y, keptTileValue, {
             fontSize: "32px", color: "#000", fontStyle: "bold"
         }).setOrigin(0.5);
     }
@@ -404,9 +405,10 @@ function createQueueSlot(scene, x, y, value, isNext=false) {
         .setScale(isNext ? 0.9 : 0.8);
 
     const label = scene.add.text(x, y, value, {
-        fontSize: isNext ? "28px" : "22px",
-        color: "#000",
-        fontStyle: "bold"
+        fontSize: isNext ? "50px": "45px",
+        color: "#00000055",
+        fontStyle: 900,
+        fontFamily: "Fredoka"
     }).setOrigin(0.5);
 
     // rounded-style frame (fake using thicker stroke + scale)
@@ -551,18 +553,18 @@ function create() {
     this.keepBox.area = { x: PANEL_X - 15, y: KEEP_Y, w: 100, h: 100 };
 
     //queue holder
-    this.add.image(PANEL_X-15, 700, "queueHolder")
+    this.add.image(PANEL_X-15, 712.5, "queueHolder")
         .setOrigin(.5)
-        .setScale(.18);
+        .setScale(.15);
 
     // Trash
-    this.add.text(PANEL_X - 15, TRASH_Y - 105, "TRASH",
+    this.add.text(PANEL_X - 15, TRASH_Y, "TRASH",
         {
             fontSize: "24px",
-            color: "#d20909ff",
+            color: "#ffffffff",
             fontStyle: "900",
             fontFamily: "Arial",
-        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
+        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true).setDepth(1);
 
     this.trashBox = this.add.image(PANEL_X - 15, TRASH_Y, "trashSlot")
         .setOrigin(.5)
@@ -571,13 +573,13 @@ function create() {
 
     this.trashBox.area = { x: PANEL_X, y: TRASH_Y, w: 130, h: 130 };
 
-    this.trashText = this.add.text(PANEL_X - 15, TRASH_Y - 80, "x" + trashUses,
+    this.trashText = this.add.text(PANEL_X - 15, TRASH_Y + 30, "x" + trashUses,
         {
             fontSize: "24px",
-            color: "#d20909ff",
+            color: "#ffffffff",
             fontStyle: "900",
             fontFamily: "Arial",
-        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true);
+        }).setOrigin(0.5).setShadow(1.5, 1.5, "#676767ff", 4, false, true).setDepth(1);
 
     // queue display
     initQueue();
@@ -656,7 +658,7 @@ function dragEndHandler(pointer, tile) {
             const temp = keptTile;
 
             keptTile = activeTile;
-            keptTile.x = PANEL_X;
+            keptTile.x = PANEL_X - 15;
             keptTile.y = KEEP_Y;
             keptTile.disableInteractive();
 
