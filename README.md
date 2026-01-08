@@ -1,46 +1,48 @@
 # JUST DIVIDE 🎮
 
-JUST DIVIDE is a grid-based number puzzle game built with **Phaser 3**.  
-The objective is to place number tiles strategically and clear space using **division-based rules**.
+JUST DIVIDE is a grid-based number puzzle game built using **Phaser.js**.  
+The game focuses on logical placement and division-based merging mechanics.
 
 ---
 
-## 🧠 Game Rules
+## 🧠 Approach
 
-- Drag the **active tile** into any empty grid cell
-- Tiles interact with their **adjacent neighbors**
+Coming from a Unity game development background, I approached this assignment by first understanding Phaser’s core concepts such as scenes, input handling, and rendering.  
+I broke the game into small systems (grid, tiles, queue, merge logic, UI) and implemented them incrementally while testing each feature.
 
-### Merging Logic
-- **Same numbers cancel each other** → both tiles disappear
-- **Divisible numbers divide**
-  - Example: `8` and `2` → `4`
-- If the division result is `1`, it disappears
+The focus was on making the game **playable, deterministic, and easy to extend** rather than over-optimizing early.
 
 ---
 
-## 🧩 Features
+## ⚙️ Decisions Made
 
-- 4×4 grid-based gameplay
-- Tile queue preview
-- KEEP slot to store a tile for later
-- TRASH slot with limited uses
-- Undo support
-- Pause / Resume
-- Timer
-- Fullscreen toggle
-- In-game tutorial (❓ button)
-- Game Over screen with restart
+- Used **simple data-driven grid logic** instead of complex physics
+- Kept merge rules explicit (cancel, divide, discard `1`) to avoid ambiguity
+- Implemented undo using **state snapshots** for reliability
+- Used Phaser tweens instead of external animation libraries
+- Designed UI overlays (pause, tutorial, game over) without scene switching to keep logic simple
 
 ---
 
-## ⌨️ Controls
+## 🚧 Challenges Faced
 
-- **Drag & Drop** – Place tiles
-- **Z** – Undo last move
-- **G** – Toggle hints
-- **Pause Button** – Pause / Resume game
-- **Fullscreen Button** – Toggle fullscreen
-- **❓ Button** – Open tutorial
+- Learning Phaser.js while implementing the assignment
+- Managing game state during animations (merges, undo, restart)
+- Handling pause/resume without breaking input
+- Ensuring undo and restart worked correctly after complex merges
+- Making UI responsive across fullscreen and windowed modes
+
+Each challenge helped me better understand Phaser’s lifecycle and event system.
+
+---
+
+## 🔧 What I Would Improve
+
+- Add better visual feedback for merges and combos
+- Improve mobile and touch support
+- Add difficulty scaling and weighted tile generation
+- Refactor some logic into reusable modules
+- Add sound effects and accessibility options
 
 ---
 
@@ -52,15 +54,7 @@ The objective is to place number tiles strategically and clear space using **div
 
 ---
 
-## 📌 Notes
+## 🚀 Running the Project
 
-- Game starts immediately on load
-- Timer runs by default
-- KEEP slot currently works as storage only
-- Designed primarily for desktop play
+The game is hosted using **GitHub Pages** and can be played directly in the browser.
 
----
-
-## 📄 License
-
-This project is intended for learning and personal use.
